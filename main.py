@@ -1,4 +1,6 @@
+from ast import dump
 import getopt
+import shlex
 import sys
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -14,18 +16,53 @@ from watchdog.observers import Observer
 from ctypes import *
 import wmi
 import pythoncom
+from pyfiglet import Figlet
 
 
 _handle_pat = re.compile(r'(.*?)\s+pid:\s+(\d+).*[0-9a-fA-F]+:\s+(.*)')
+
+
+custom_fig = Figlet(font='larry3d')
+print(custom_fig.renderText('CyperGate'))
+print('devloped by Abdulrhman Al-Obaidi for CyperGate')
+print('Our Team: Ghala Al-Obuod, Dhay Al-Harbi, Rashidah Al-Rashidi, Yousef Al-Yami ')
 
 document = os.path.join(os.path.join(
     os.environ['USERPROFILE']), 'Documents') + '\\'
 desktop = os.path.join(os.path.join(
     os.environ['USERPROFILE']), 'Desktop') + '\\'
 
+dump_enabled = False
+unmount_enabled = False
+
+def memdump():
+    handlePath = '"' + os.path.dirname(os.path.realpath(
+        __file__)) + '\winpmem_mini_x64_rc2" memdump.raw' 
+    print('dumpping memory')
+    process = subprocess.Popen(handlePath,shell=True,stdout=subprocess.PIPE , stderr=subprocess.STDOUT)
+    process.wait()
+    print('dumpping done')
+
+
+def unmount():
+    import win32api
+    drives = win32api.GetLogicalDriveStrings()
+    drives = drives.split('\000')[:-1]
+    print (drives)
+    for drive in drives:
+        # if(drive != 'C:\\'):
+        try:
+            lines = subprocess.check_output('mountvol %s /p' % drive.rstrip('\\')).splitlines()
+            print(lines)
+        except:
+            pass
+
 
 def gameOver():
-
+    if dump_enabled:
+        memdump()
+    if unmount_enabled:
+        unmount()
     os.system('shutdown /s /f /t 0')
 
 
@@ -33,7 +70,6 @@ def open_files(name):
     handlePath = os.path.dirname(os.path.realpath(
         __file__)) + '\\handle.exe -accepteula "' + name + '"'
     lines = subprocess.check_output(handlePath).splitlines()
-    # print(lines.decode('utf-16'))
     results = (_handle_pat.match(line.decode('mbcs')) for line in lines)
     return [m.groups() for m in results if m]
 
@@ -47,8 +83,6 @@ def list_all_processes():
     # print(pid)
     # results = (_handle_pat.match(line.decode('mbcs')) for line in lines)
     return pid
-
-# import time module, Observer, FileSystemEventHandler
 
 
 def generateFiles():
@@ -70,10 +104,9 @@ class OnMyWatch:
         os.environ['USERPROFILE']), 'Desktop') + '\\'
     watchDirectory = desktop
     generateFiles()
+    # memdump()
     # print(desktop)
     watchDirectory2 = document
-    # f = open("./test.test", "w")
-    # print(f.read())
 
     def __init__(self, mode):
         self.observer = Observer()
@@ -105,9 +138,12 @@ def killNewOnly():
     watcher = c.watch_for(
         notification_type="Creation",
         wmi_class="Win32_Process",
-        delay_secs=1,
+        # delay_secs=3,
     )
-
+    if dump_enabled:
+        memdump()
+    if unmount_enabled:
+        unmount()
     while 1:
         try:
             process_created = watcher()
@@ -123,6 +159,8 @@ def killNewOnly():
             pass
 
 
+
+
 class Handler(FileSystemEventHandler):
 
     @staticmethod
@@ -132,14 +170,14 @@ class Handler(FileSystemEventHandler):
         if(len(fi) > 0):
             print(fi[0][1])
             print(os.path.basename(fi[0][2]))
-
             if(os.path.basename(fi[0][2]) == 'test.test'):
-                os.kill(int(fi[0][1]), signal.SIGTERM)  # or signal.SIGKILL
+                os.kill(int(fi[0][1]), signal.SIGTERM)
+                unmount()
             if(mode == 'normal'):
                 killNewOnly()
             elif(mode == 'super'):
                 gameOver()
-
+       
         if event.is_directory:
             return None
         elif event.event_type == 'created':
@@ -157,32 +195,40 @@ if __name__ == '__main__':
     argumentList = sys.argv[1:]
 
     # Options
-    options = "hsn"
+    options = "hsndu"
 
     # Long options
-    long_options = ["Help", "Super", "Normal"]
+    long_options = ["Help", "Super", "Normal", "Dump", "Unmount"]
     mode = ''
     try:
         # Parsing argument
         arguments, values = getopt.getopt(argumentList, options, long_options)
         if(len(arguments) == 0):
-            print("error")
+            print("-n --Normal will kill new started processes \n-s --Super  emergency shutdown \n-d --Dump   enable momery dump\n-u --Unmount Unmount all drives")
             quit()
 
         # checking each argument
+
         for currentArgument, currentValue in arguments:
+            if currentArgument in ("-d", "--Dump"):
+                dump_enabled = True
+                print('dump enabled')
+
+            if currentArgument in ("-u", "--Unmount"):
+                unmount_enabled = True
+                print('umonunt enabled')
 
             if currentArgument in ("-h", "--Help"):
                 print(
-                    "normal mode will kill new started processes only \n Super mode emergency shutdown")
+                    "-n --Normal will kill new started processes \n-s --Super  emergency shutdown \n-d --Dump   enable momery dump\n-u --Unmount Unmount all drives")
                 quit()
             if currentArgument in ("-s", "--Super"):
-
                 agree = input("Are you sure ? n or y : ")
                 if(agree == 'y'):
                     mode = 'super'
-                # elif(agree == 'n'):
-                #     print('OK')
+                elif(agree == 'n'):
+                    print('OK')
+                    quit()
                 else:
                     print('uknown input')
                     quit()
@@ -190,8 +236,8 @@ if __name__ == '__main__':
             elif currentArgument in ("-n", "--Normal"):
                 mode = 'normal'
 
-            watch = OnMyWatch(mode)
-            watch.run()
+        watch = OnMyWatch(mode)
+        watch.run()
 
     except getopt.error as err:
         # output error, and return with an error code
