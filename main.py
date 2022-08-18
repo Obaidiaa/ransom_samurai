@@ -27,6 +27,7 @@ print(custom_fig.renderText('CyperGate'))
 print('devloped by Abdulrhman Al-Obaidi for CyperGate')
 print('Our Team: Ghala Al-Obuod, Dhay Al-Harbi, Rashidah Al-Rashidi, Yousef Al-Yami ')
 
+#path for observer to observe file change
 document = os.path.join(os.path.join(
     os.environ['USERPROFILE']), 'Documents') + '\\'
 desktop = os.path.join(os.path.join(
@@ -35,6 +36,8 @@ desktop = os.path.join(os.path.join(
 dump_enabled = False
 unmount_enabled = False
 
+
+#memory dump to file
 def memdump():
     handlePath = '"' + os.path.dirname(os.path.realpath(
         __file__)) + '\winpmem_mini_x64_rc2" memdump.raw' 
@@ -43,7 +46,7 @@ def memdump():
     process.wait()
     print('dumpping done')
 
-
+#unmount all driver expect sys drive
 def unmount():
     import win32api
     drives = win32api.GetLogicalDriveStrings()
@@ -57,7 +60,7 @@ def unmount():
         except:
             pass
 
-
+#super mode dump memory and unmount drviers as configured and shutdown the machine
 def gameOver():
     if dump_enabled:
         memdump()
@@ -65,7 +68,7 @@ def gameOver():
         unmount()
     os.system('shutdown /s /f /t 0')
 
-
+#find which appliaction edit the file
 def open_files(name):
     handlePath = os.path.dirname(os.path.realpath(
         __file__)) + '\\handle.exe -accepteula "' + name + '"'
@@ -73,18 +76,7 @@ def open_files(name):
     results = (_handle_pat.match(line.decode('mbcs')) for line in lines)
     return [m.groups() for m in results if m]
 
-
-def list_all_processes():
-    handlePath = os.path.dirname(os.path.realpath(
-        __file__)) + '\\handle.exe -accepteula'
-    lines = subprocess.check_output(handlePath).decode('utf-8')
-    regex = r'(pid: \d+)+'
-    pid = re.findall(regex, lines)
-    # print(pid)
-    # results = (_handle_pat.match(line.decode('mbcs')) for line in lines)
-    return pid
-
-
+#genreate files 
 def generateFiles():
 
     f = open(document + '\\test.test', "w")
@@ -98,27 +90,24 @@ def generateFiles():
 class OnMyWatch:
 
     # Set the directory on watch
-    document = os.path.join(os.path.join(
-        os.environ['USERPROFILE']), 'Documents') + '\\'
-    desktop = os.path.join(os.path.join(
-        os.environ['USERPROFILE']), 'Desktop') + '\\'
+
     watchDirectory = desktop
-    generateFiles()
-    # memdump()
-    # print(desktop)
     watchDirectory2 = document
+
+    #genreate files
+    generateFiles()
+
 
     def __init__(self, mode):
         self.observer = Observer()
-        print(mode)
 
     def run(self):
         event_handler = Handler()
         self.observer.schedule(
             event_handler, self.watchDirectory, recursive=True)
-        self.observer.start()
         self.observer.schedule(
             event_handler, self.watchDirectory2, recursive=True)
+        self.observer.start()
 
         try:
             while True:
@@ -144,6 +133,8 @@ def killNewOnly():
         memdump()
     if unmount_enabled:
         unmount()
+
+    #start watch processes
     while 1:
         try:
             process_created = watcher()
@@ -166,10 +157,7 @@ class Handler(FileSystemEventHandler):
     @staticmethod
     def on_any_event(event):
         fi = open_files(event.src_path.replace('\\', '/'))
-        print(fi)
         if(len(fi) > 0):
-            print(fi[0][1])
-            print(os.path.basename(fi[0][2]))
             if(os.path.basename(fi[0][2]) == 'test.test'):
                 os.kill(int(fi[0][1]), signal.SIGTERM)
                 unmount()
